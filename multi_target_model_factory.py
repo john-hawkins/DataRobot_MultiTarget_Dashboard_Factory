@@ -76,41 +76,49 @@ def close_results(results_file):
 #################################################################################
 
 def run_multi_target_model_factory(project_name, path_to_data, target_cols, dr_mode, config_file) : 
-    ensure_results_dir(project_name)
 
+    # SET UP LOCATION FOR STORING RESULTS
+    ensure_results_dir(project_name)
     results_file = start_results_file(project_name)
 
+    # TURN THE TARGETS INTO A LIST FOR ITERATION
     target_list = target_cols.split(',')
+
+    # EXTRACT THE COLUMN HEADERS AS A SET OF FEATURES
+    df = pd.read_csv(path_to_data)
+    features = df.columns.tolist()
+    for t in target_list: features.remove(t)
+
     mode_config = dr_mode.split(':')
-    # TODO: Need to force DR Login with supplied credentials
+    # #######################################################################
+    # TODO: Need to force DataRobot Login with supplied credentials
+    # #########################################################################
 
     for targ in target_list :
         temp_name = project_name + "_" + targ
         project = dr.Project.create(sourcedata=path_to_data, project_name=temp_name)
+        flist = project.create_featurelist('features', features)
+
         if( mode_config[0]=='OTV' ) :
 
             if( len(mode_config)>2 ):
                 partition = dr.DatetimePartitioningSpecification( datetime_partition_column = mode_config[1], gap_duration = mode_config[2])
             else :
                 partition = dr.DatetimePartitioningSpecification( datetime_partition_column = mode_config[1] )
-            project.set_target( target = targ, partitioning_method = partition )
-            project.set_worker_count(20)
+            project.set_target( target = targ, partitioning_method = partition, featurelist_id=flist.id, worker_count=-1 )
             project.wait_for_autopilot()
 
         elif( mode_config[0]=='GRPD' ) :
  
             partition = dr.GroupCV( holdout_pct = 10, reps = 5, partition_key_cols = [mode_config[1]] )
-            project.set_target( target = targ, partitioning_method = partition )
-            project.set_worker_count(20)
+            project.set_target( target = targ, partitioning_method = partition, featurelist_id=flist.id, worker_count=-1 )
             project.wait_for_autopilot()
 
         elif( mode_config[0]=='QUICK' ) :
-            project.set_target( target = targ, mode = 'Quick' )
-            project.set_worker_count(20)
+            project.set_target( target = targ, mode = 'Quick', featurelist_id=flist.id, worker_count=-1 )
             project.wait_for_autopilot()
         else :
-            project.set_target( target = targ )
-            project.set_worker_count(20)
+            project.set_target( target = targ, featurelist_id=flist.id, worker_count=-1 )
             project.wait_for_autopilot()
 
         # ONCE THE PROJECT COMPLETES WE NEED TO CHOOSE THE MODEL, DEPLOY IT AND STORE THE RESULTS
