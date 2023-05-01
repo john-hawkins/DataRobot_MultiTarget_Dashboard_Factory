@@ -1,4 +1,4 @@
-Flask==1.1.1
+Flask==2.3.2
 pandas==0.22.0
 numpy==1.14.0
 pyyaml
